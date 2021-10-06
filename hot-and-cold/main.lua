@@ -7,11 +7,19 @@ meta = {
 
 local init_performed = false
 local white = Color:white()
+local red = Color:red()
+local blue = Color:blue()
 local thermometer_texture
 local thermometer_hud_pos
 local thermometers_count = 15
 local wiggle_offset = 0.002
 local max_distance = 0
+local previous_column = -1
+local caption_scale = 0.0008
+local caption_timer = 0
+local caption = ""
+local caption_color = blue
+local caption_duration = 120
 
 function init()
     local thermometer_texture_def = TextureDefinition:new()
@@ -25,7 +33,7 @@ function init()
 
     local thermometer_hud_width = 0.16
     local thermometer_hud_height = thermometer_hud_width * (16.0/9.0)
-    local thermometer_hud_x = 0.863
+    local thermometer_hud_x = 0.840
     local thermometer_hud_y = 0.80
     thermometer_hud_pos = AABB:new( thermometer_hud_x, 
                                     thermometer_hud_y, 
@@ -82,7 +90,10 @@ set_callback(function(render_ctx)
     if not init_performed then
         init()
     end
-    if state.world == 6 and state.level == 2 and state.camera_layer == LAYER.BACK and players[1]:has_powerup(ENT_TYPE.ITEM_POWERUP_TABLETOFDESTINY) then
+    if state.world == 6 and state.level == 2 and state.camera_layer == LAYER.BACK 
+        and players[1]:has_powerup(ENT_TYPE.ITEM_POWERUP_TABLETOFDESTINY) 
+        and not test_flag(state.quest_flags, 8) then
+
         if max_distance == 0 then calc_max_distance() end
         local thermometer_column = 0
         local ushabti = find_ushabti()
@@ -102,6 +113,30 @@ set_callback(function(render_ctx)
             local bounds = thermometer_hud_pos
             bounds:offset(wiggle_delta_x, wiggle_delta_y)
             render_ctx:draw_screen_texture(thermometer_texture, 0, thermometer_column, bounds, white)
+
+            if previous_column > 0 then
+                if previous_column ~= thermometer_column then
+                    caption = "colder"
+                    caption_color = blue
+                    if previous_column < thermometer_column then
+                        caption = "warmer"
+                        caption_color = red
+                    end
+                    if thermometer_column == thermometers_count - 1 then
+                        caption = "scorching!"
+                        caption_color = red
+                    end
+                    caption_timer = caption_duration
+                end
+                if caption_timer > 0 then
+                    local caption_x = bounds.left + (bounds:width() / 2.0)
+                    local caption_y = bounds.bottom - 0.04
+                    caption_color.a = caption_timer / caption_duration
+                    render_ctx:draw_text(caption, caption_x, caption_y, caption_scale, caption_scale, caption_color, VANILLA_TEXT_ALIGNMENT.CENTER, VANILLA_FONT_STYLE.ITALIC)
+                end
+                caption_timer = caption_timer - 1
+            end
+            previous_column = thermometer_column
         end
     end
 end, ON.RENDER_POST_HUD)
